@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    /* Mobile-first adjustments */
+    body { 
+      background-color: #f8f9fa; 
+      margin: 0;
+      padding: 15px;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Keeps original name, but made responsive instead of fixed 400px */
+    .search-container { 
+      width: 100%; 
+      max-width: 450px; 
+      background: white; 
+      padding: 20px; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08); 
+    }
+
+    /* Suggestions need to be relative to the input container for mobile */
+    #suggestions { 
+      position: absolute; 
+      z-index: 1000; 
+      width: 100%; 
+      cursor: pointer;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    /* Ensures buttons are easy to tap on a touchscreen */
+    .btn {
+      padding: 12px;
+      font-weight: 600;
+    }
+
+    /* Modern Overlay style for mobile */
+    #resultoverlay {
+      position: fixed; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
+      background: rgba(0,0,0,0.7); 
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .result-card { 
+      display: none; /* Controlled by your script */
+      margin-top: 15px; 
+    }
+
+    .form-select-sm, .form-control {
+      height: 45px; /* Better for thumb interaction */
+    }
+  </style>
+<link rel="manifest" href="=install_app_manifest.json">
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js")
+    .then(() => console.log("SW registered"))
+    .catch(err => console.error("SW failed", err));
+}
+</script>
+</head>
+<body>
+  
+  <div class="search-container">
+    <div id="search-form">
+      
+      <div id="searchform">
+        <h5 class="mb-1">Branch Linker</h5>
+        
+        <div id="db-status" class="small mb-3" style="display: none; color: #198754; font-weight: bold;">
+          ● Connected to database
+        </div>
+
+        <div class="mb-3">
+          <label class="small fw-bold">Bank</label>
+          <select id="bankSelect" class="form-select">
+            <option value="Al Rajhi Bank">Al Rajhi Bank</option>
+            <option value="Al Inma Bank">Al Inma Bank</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mb-4" style="position: relative;">
+        <label class="small fw-bold">Branch Name or Code</label>
+        <input type="text" id="branchInput" class="form-control" autocomplete="off" placeholder="Search...">
+        <ul id="suggestions" class="list-group small"></ul>
+      </div>
+
+      <button id="findBtn" class="btn btn-primary w-100">Find</button>
+    </div>
+
+    <div class="result-card">
+      </div>
+
+    <div id="resultoverlay">
+        <div class="card mx-auto" style="width: 90%; max-width: 350px; border-radius: 15px;">
+            <div class="card-body p-4">
+                <h6 id="resBranch" class="text-primary fw-bold mb-2"></h6>
+                <div id="resDetails" class="small text-muted mb-4"></div>
+
+                <div class="d-grid gap-2">
+                    <button id="copyBtn" class="btn btn-outline-primary btn-sm py-2">Copy Link</button>
+                    <button id="closeOverlayBtn" class="btn btn-light btn-sm text-secondary mt-1">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <script>
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyOur4oshQes29wnuaVa_grPmOt4m8sJ2ug-FgRcsEdErOZL5ItgziT1NMiaZX5LLreZA/exec';
+let sheetData = [];
+let currentMapLink = "";
+
+document.addEventListener('DOMContentLoaded', () => {
+    const statusLine = document.getElementById('db-status');
+    const CACHE_KEY = 'cachedSheetData';
+	const input = document.getElementById('branchInput');
+	input.focus();
+	
+    // --- HELPER: Detect Environment & Load Cache ---
+    const loadCache = (callback) => {
+        if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+            // Extension Mode
+            chrome.storage.local.get([CACHE_KEY], (result) => callback(result[CACHE_KEY]));
+        } else {
+            // Webpage Mode
+            const data = localStorage.getItem(CACHE_KEY);
+            callback(data ? JSON.parse(data) : null);
+        }
+    };
+
+    // --- HELPER: Detect Environment & Save Cache ---
+    const saveCache = (data) => {
+        if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.set({ [CACHE_KEY]: data });
+        } else {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        }
+    };
+
+    // --- STEP 1: LOAD FROM CACHE (Any environment) ---
+    loadCache((cachedData) => {
+        if (cachedData) {
+            sheetData = cachedData;
+            console.log("Loaded from cache (" + (typeof chrome !== "undefined" ? "Extension" : "Web") + ")");
+            if (statusLine) {
+                statusLine.textContent = "● Using Cached Data (Refreshing...)";
+                statusLine.style.color = "#ff9800";
+                statusLine.style.display = 'block';
+            }
+        }
+    });
+
+    // --- STEP 2: FETCH FRESH DATA ---
+    fetch(WEB_APP_URL, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            sheetData = data;
+            
+            // --- STEP 3: SAVE TO CACHE ---
+            saveCache(data);
+
+            if (statusLine) {
+                statusLine.textContent = "● Database Connected (Fresh)";
+                statusLine.style.color = "#198754";
+                statusLine.style.display = 'block';
+            }
+        })
+        .catch(err => {
+            console.error("Fetch failed:", err);
+            if (statusLine && !sheetData.length) {
+                statusLine.textContent = "● Connection failed";
+                statusLine.style.color = "#dc3545";
+            }
+        });
+    
+
+    
+    const suggs = document.getElementById('suggestions');
+    const findBtn = document.getElementById('findBtn');
+
+    input.addEventListener('input', () => {
+    const selectedBank = document.getElementById('bankSelect').value.toLowerCase().trim();
+    const query = input.value.toLowerCase().trim();
+    suggs.innerHTML = '';
+
+    if (query.length < 1) return;
+
+    // DEBUG: Let's see what we are looking for
+    console.log(`Searching for "${query}" in bank "${selectedBank}"`);
+
+    const matches = sheetData.filter(item => {
+        // We use Object.keys to find the right property regardless of exact casing
+        const keys = Object.keys(item);
+        
+        // Find values by searching for keys that include our target words
+        const bankKey = keys.find(k => k.toLowerCase().includes('bank'));
+        const nameKey = keys.find(k => k.toLowerCase().includes('branch name'));
+        const codeKey = keys.find(k => k.toLowerCase().includes('br code') || k.toLowerCase().includes('code'));
+
+        const itemBank = String(item[bankKey] || "").toLowerCase().trim();
+        const itemName = String(item[nameKey] || "").toLowerCase();
+        const itemCode = String(item[codeKey] || "").toLowerCase();
+
+        const isSameBank = itemBank === selectedBank;
+        const nameMatch = itemName.includes(query);
+        const codeMatch = itemCode.includes(query);
+
+        return isSameBank && (nameMatch || codeMatch);
+    }).slice(0, 5);
+	
+		
+    console.log("Matches found:", matches.length);
+
+    if (matches.length > 0) {
+        matches.forEach(item => {
+            // Find keys again for display
+            const nameKey = Object.keys(item).find(k => k.toLowerCase().includes('branch name'));
+            const codeKey = Object.keys(item).find(k => k.toLowerCase().includes('br code') || k.toLowerCase().includes('code'));
+            
+            const li = document.createElement('li');
+            li.className = 'list-group-item list-group-item-action p-2';
+            li.textContent = `${item[nameKey]} (${item[codeKey]})`;
+            
+            li.addEventListener('click', () => {
+                input.value = item[nameKey];
+                suggs.innerHTML = '';
+            });
+            suggs.appendChild(li);
+        });
+    }
+});
+
+findBtn.addEventListener('click', () => {
+    const searchForm = document.getElementById('search-form');
+    const resArea = document.getElementById('result-area');
+    const resBranch = document.getElementById('resBranch');
+    const resDetails = document.getElementById('resDetails');
+
+    const selectedBank = document.getElementById('bankSelect').value.toLowerCase().trim();
+    const val = input.value.toLowerCase().trim();
+	console.log("Search input:", val);
+    
+    const match = sheetData.find(item => {
+        const keys = Object.keys(item);
+        const bankKey = keys.find(k => k.toLowerCase().includes('bank'));
+        const nameKey = keys.find(k => k.toLowerCase().includes('branch name'));
+        const codeKey = keys.find(k => k.toLowerCase().includes('br code') || k.toLowerCase().includes('code'));
+
+        const itemBank = String(item[bankKey] || "").toLowerCase().trim();
+        const itemName = String(item[nameKey] || "").toLowerCase().trim();
+        const itemCode = String(item[codeKey] || "").toLowerCase().trim();
+        
+        return itemBank === selectedBank && (itemName === val || itemCode === val);
+    });
+
+    if (match) {
+		
+
+        const keys = Object.keys(match);
+        const bankKey = keys.find(k => k.toLowerCase().includes('bank'));
+		const nameKey = keys.find(k => k.toLowerCase().includes('branch name'));
+        const codeKey = keys.find(k => k.toLowerCase().includes('br code') || k.toLowerCase().includes('code'));
+        const teamKey = keys.find(k => k.toLowerCase().includes('apsg team') || k.toLowerCase().includes('team'));
+		const unitsKey = keys.find(k => k.toLowerCase().includes('units') || k.toLowerCase().includes('units'));
+		const lastpmKey = keys.find(k => k.toLowerCase().includes('last pm') || k.toLowerCase().includes('last'));
+		const reportKey = keys.find(k => k.toLowerCase().includes('report file') || k.toLowerCase().includes('file'));
+        
+		const linkKey = keys.find(k => k.toLowerCase().includes('map link') || k.toLowerCase().includes('link'));
+
+        currentMapLink = match[linkKey] || "";
+	console.log("Search success:", currentMapLink );
+
+        // Fill data
+		const reportUrl = match[reportKey];
+				let reportHtml = 'N/A';
+	if (reportUrl && reportUrl.startsWith('http')) {
+    // If it's a valid link, make it a clickable anchor tag
+    reportHtml = `<a href="${reportUrl}" target="_blank" class="text-decoration-none fw-bold">View Report 📃</a>`;
+	} else if (reportUrl) {
+    // If there is text but it's not a link, just show the text
+    reportHtml = 'no report available for this period';
+	}
+	
+			const linkUrl = match[linkKey];
+				let linkHtml = 'N/A';
+	if (linkUrl && linkUrl.startsWith('http')) {
+    // If it's a valid link, make it a clickable anchor tag
+    linkHtml = `<a href="${linkUrl}" target="_blank" class="text-decoration-none fw-bold">Open Map 📌</a>`;
+	} else if (linkUrl) {
+    // If there is text but it's not a link, just show the text
+    linkHtml = 'no location available';
+	}
+
+        resBranch.textContent = match[bankKey] + " - " + match[nameKey] || "Branch Found";
+        resDetails.innerHTML = `
+            <strong>Code:</strong> ${match[codeKey] || 'N/A'}<br>
+            <strong>Team:</strong> ${match[teamKey] || 'N/A'}<br>
+			<strong>Units:</strong> ${match[unitsKey] || 'N/A'}<br>
+			<strong>Last PM:</strong> ${match[lastpmKey] || 'N/A'}<br>
+			<strong>Report:</strong> ${reportHtml}<br>
+			<strong>GPS:</strong> ${linkHtml}
+        `;
+
+        // UI SWITCH
+        searchform.style.setProperty('display', 'none', 'important');
+        resultoverlay.style.setProperty('display', 'block', 'important');
+		document.body.style.minHeight = '390px';
+		document.body.style.height = '390px';
+        console.log("Results displayed!");
+
+
+        // FORCED RESIZE: This tells Chrome "Hey, I changed size, don't go blank!"
+        setTimeout(() => {
+            const currentHeight = document.body.scrollHeight;
+            document.body.style.height = (currentHeight + 1) + 'px';
+        }, 50);
+
+    } else {
+        alert('Match failed. Please select from the dropdown suggestions.');
+    }
+});
+
+    // Reset, Open, and Copy remain the same...
+
+   document.getElementById('closeOverlayBtn').addEventListener('click', () => {
+        
+    
+		input.value = '';     // Clear data
+		input.focus();
+		searchform.style.setProperty('display', 'block', 'important');
+        resultoverlay.style.setProperty('display', 'none', 'important');
+		document.body.style.minHeight = 'auto';
+		document.body.style.height = 'auto';
+
+    });
+
+ 
+    document.getElementById('copyBtn').addEventListener('click', () => {
+        if (currentMapLink) {
+            navigator.clipboard.writeText(currentMapLink).then(() => {
+                const btn = document.getElementById('copyBtn');
+                btn.textContent = "Copied!";
+                setTimeout(() => { btn.textContent = "Copy Link"; }, 2000);
+            });
+        }
+    });
+});
+  </script>
+</body>
+</html>
