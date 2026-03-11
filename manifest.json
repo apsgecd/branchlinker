@@ -8,10 +8,11 @@
     "default_icon": "icon.png"
   },
   "icons": {
-    "16": "/branchlinker/icon.png",
-    "48": "/branchlinker/icon.png",
-    "128": "/branchlinker/icon.png"
+    "16": "/branchlinker/icon16.png",
+    "48": "/branchlinker/icon48.png",
+    "128": "/branchlinker/icon128.png"
   },
     "permissions": ["storage"] 
 }
+
 
