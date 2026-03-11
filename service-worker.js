@@ -3,8 +3,8 @@ const CACHE_NAME = "branch-linker-cache-v1";
 
 const ASSETS_TO_CACHE = [
   "/",                // root
-  "?v=manifest",      // manifest
-  "?v=service-worker",// service worker itself
+  "manifest",      // manifest
+  "service-worker",// service worker itself
   "index.html",       // your main page
   "script.js",        // if you have JS
   "https://cdn-icons-png.flaticon.com/512/14098/14098677.png",
@@ -51,3 +51,4 @@ self.addEventListener("fetch", (event) => {
   );
 });
 </script>
+
