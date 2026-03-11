@@ -1,13 +1,12 @@
 const CACHE_NAME = "branch-linker-cache-v1";
 
 const ASSETS_TO_CACHE = [
-  "/",                // root
-  "manifest",      // manifest
-  "service-worker",// service worker itself
-  "index.html",       // your main page
-  "script.js",        // if you have JS
-  "https://cdn-icons-png.flaticon.com/512/14098/14098677.png",
-  "https://cdn-icons-png.flaticon.com/512/14098/14098677.png"
+  "/branchlinker/",                // root
+  "/branchlinker/install_app_manifest.json",      // manifest
+  "/branchlinker/service-worker.js",// service worker itself
+  "/branchlinker/index.html",       // your main page
+  "/branchlinker/script.js",        // if you have JS
+  "/branchlinker/icon.png"
 ];
 
 // Install event: cache everything
@@ -49,5 +48,6 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(event.request))
   );
 });
+
 
 
