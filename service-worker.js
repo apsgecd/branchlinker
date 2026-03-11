@@ -1,4 +1,3 @@
-<script>
 const CACHE_NAME = "branch-linker-cache-v1";
 
 const ASSETS_TO_CACHE = [
@@ -50,5 +49,5 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(event.request))
   );
 });
-</script>
+
 
