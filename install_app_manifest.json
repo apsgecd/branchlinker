@@ -4,8 +4,8 @@
   "short_name": "Brinker",
   "start_url": "/branchlinker/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#000000",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "/branchlinker/favicon192.png",
@@ -19,6 +19,7 @@
     }
   ]
 }
+
 
 
 
