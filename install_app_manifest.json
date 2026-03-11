@@ -1,5 +1,6 @@
 {
   "name": "Branch linker",
+  "start_url": "/branchlinker/",
   "short_name": "Brinker",
   "start_url": "/branchlinker/",
   "display": "standalone",
@@ -18,5 +19,6 @@
     }
   ]
 }
+
 
 
