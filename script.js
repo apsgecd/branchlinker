@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   input.focus();
 
+  // Safe notification wrapper replacing deprecated browser alerts
   function showNotification(msg) {
     const toast = document.getElementById('toast-notification');
     toast.textContent = msg;
@@ -21,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { toast.style.display = 'none'; }, 3000);
   }
 
+  // Loaded stored Nextcloud credential objects from cache safely
   function loadNextcloudConfig() {
     const url = localStorage.getItem('pm_nc_url');
     const user = localStorage.getItem('pm_nc_user');
@@ -31,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   loadNextcloudConfig();
 
+  // Settings Panel transitions
   toggleSettingsBtn.addEventListener('click', () => {
     const isCollapsed = !ncSettingsPanel.classList.contains('show');
     if (isCollapsed) {
@@ -40,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // LocalStorage persister for credentials
   saveSettingsBtn.addEventListener('click', () => {
     const url = document.getElementById('nc_url').value.trim().replace(/\/$/, "");
     const user = document.getElementById('nc_user').value.trim();
@@ -296,6 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Clipboard copy helper using element fallback for sandboxed iframe environments
   function copyToClipboard(text) {
     const el = document.createElement('textarea');
     el.value = text;
