@@ -2,6 +2,16 @@ const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyOur4oshQes29wnuaV
 let sheetData = [];
 let currentMapLink = "";
 
+// Register Service Worker securely matching the directory path context
+if ("serviceWorker" in navigator) {
+  // Only register standard service worker on secure protocols (http/https)
+  if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+    navigator.serviceWorker.register("/branchlinker/service-worker.js")
+      .then(() => console.log("PWA Service Worker registered under /branchlinker/ scope."))
+      .catch(err => console.error("PWA Service Worker registration failed:", err));
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const statusLine = document.getElementById('db-status');
   const CACHE_KEY = 'cachedSheetData';
@@ -14,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   input.focus();
 
-  // Safe notification wrapper replacing deprecated browser alerts
+  // --- HELPER: Display Feedback Alerts safely without window.alert ---
   function showNotification(msg) {
     const toast = document.getElementById('toast-notification');
     toast.textContent = msg;
@@ -22,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { toast.style.display = 'none'; }, 3000);
   }
 
-  // Loaded stored Nextcloud credential objects from cache safely
+  // --- NEXTCLOUD: Sync Configuration Local Persistence ---
   function loadNextcloudConfig() {
     const url = localStorage.getItem('pm_nc_url');
     const user = localStorage.getItem('pm_nc_user');
@@ -33,7 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   loadNextcloudConfig();
 
-  // Settings Panel transitions
   toggleSettingsBtn.addEventListener('click', () => {
     const isCollapsed = !ncSettingsPanel.classList.contains('show');
     if (isCollapsed) {
@@ -43,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // LocalStorage persister for credentials
   saveSettingsBtn.addEventListener('click', () => {
     const url = document.getElementById('nc_url').value.trim().replace(/\/$/, "");
     const user = document.getElementById('nc_user').value.trim();
@@ -61,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showNotification("Nextcloud config saved locally.");
   });
 
+  // --- HELPER: Detect Environment & Load Cache ---
   const loadCache = (callback) => {
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
       chrome.storage.local.get([CACHE_KEY], (result) => callback(result[CACHE_KEY]));
@@ -70,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  // --- HELPER: Detect Environment & Save Cache ---
   const saveCache = (data) => {
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
       chrome.storage.local.set({ [CACHE_KEY]: data });
@@ -78,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // Step 1: Initialize Cache Load
+  // --- STEP 1: LOAD FROM CACHE ---
   loadCache((cachedData) => {
     if (cachedData) {
       sheetData = cachedData;
@@ -90,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Step 2: Fetch Active Database Updates
+  // --- STEP 2: FETCH FRESH DATA ---
   fetch(WEB_APP_URL, { method: 'POST' })
     .then(res => res.json())
     .then(data => {
@@ -110,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+  // Suggestions Handler
   input.addEventListener('input', () => {
     const selectedBank = document.getElementById('bankSelect').value.toLowerCase().trim();
     const query = input.value.toLowerCase().trim();
@@ -148,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Query Nextcloud Reports
   async function queryNextcloudReports(branchCode) {
     const reportsList = document.getElementById('ncReportsList');
     const ncUrl = localStorage.getItem('pm_nc_url');
@@ -190,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Render Reports inside Results Dashboard
   function renderNextcloudReports(files) {
     const container = document.getElementById('ncReportsList');
     container.innerHTML = '';
@@ -218,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const actionGroup = document.createElement('div');
       actionGroup.className = 'd-flex gap-1';
 
-      // View Button
+      // View Action Button
       const btnView = document.createElement('button');
       btnView.className = 'btn btn-sm btn-light py-1 px-2 border';
       btnView.textContent = 'View';
@@ -229,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateViewAction();
       actionGroup.appendChild(btnView);
 
-      // Copy/Share Button
+      // On-Demand Sharing & Copy Trigger Button
       const btnCopyShare = document.createElement('button');
       btnCopyShare.className = 'btn btn-sm btn-primary py-1 px-2';
       btnCopyShare.style.fontSize = '11px';
@@ -268,6 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     container.appendChild(listGroup);
   }
 
+  // Dynamic share link generator via Nextcloud REST sharing controller
   async function autoShareFileOnServer(id) {
     const ncUrl = localStorage.getItem('pm_nc_url');
     const ncUser = localStorage.getItem('pm_nc_user');
@@ -300,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Clipboard copy helper using element fallback for sandboxed iframe environments
+  // Safe clipboard helper
   function copyToClipboard(text) {
     const el = document.createElement('textarea');
     el.value = text;
@@ -315,6 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.removeChild(el);
   }
 
+  // --- BRANCH LINKER SEARCH LOGIC ---
   findBtn.addEventListener('click', () => {
     const resBranch = document.getElementById('resBranch');
     const resDetails = document.getElementById('resDetails');
@@ -348,6 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
       currentMapLink = match[linkKey] || "";
       const branchCode = match[codeKey] || "";
 
+      // Static Report display logic
       const reportUrl = match[reportKey];
       let reportHtml = 'N/A';
       if (reportUrl && reportUrl.startsWith('http')) {
@@ -374,11 +390,11 @@ document.addEventListener('DOMContentLoaded', () => {
         <strong>GPS:</strong> ${linkHtml}
       `;
 
-      // Trigger UI Transitions
+      // UI Transition
       document.getElementById('searchform').style.setProperty('display', 'none', 'important');
       document.getElementById('resultoverlay').style.setProperty('display', 'flex', 'important');
 
-      // Initiate Nextcloud reports query
+      // Trigger Live Nextcloud search using the matching Branch Code
       document.getElementById('ncReportsList').innerHTML = `
         <div class="text-center py-2 text-muted">
           <span class="spinner-border spinner-border-sm me-1 text-indigo-500" style="color:#4f46e5" role="status"></span>
@@ -392,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Close and reset panel state
+  // Clear details modal and reset
   document.getElementById('closeOverlayBtn').addEventListener('click', () => {
     input.value = '';     
     input.focus();
@@ -400,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('resultoverlay').style.setProperty('display', 'none', 'important');
   });
 
-  // Handle GPS location copying
+  // Copier GPS Link
   document.getElementById('copyBtn').addEventListener('click', () => {
     if (currentMapLink) {
       navigator.clipboard.writeText(currentMapLink).then(() => {
