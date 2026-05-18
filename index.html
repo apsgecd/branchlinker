@@ -3,20 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Branch Linker & Report Portal</title>
-  
-  <!-- Bootstrap 5 CSS -->
+  <title>Branch Linker Portal</title>
+  <!-- Bootstrap 5 CDN for responsive structure -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="manifest" href="install_app_manifest.json">
   <link rel="icon" href="/branchlinker/icon.png">
   <link rel="apple-touch-icon" href="/branchlinker/favicon192.png">
-  <!-- Inter Font for modern, clean typography -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
-    /* */
     body { 
-      font-family: 'Inter', sans-serif;
       background-color: #f1f5f9; 
       margin: 0;
       padding: 15px;
@@ -24,50 +19,58 @@
       justify-content: center;
       align-items: center;
       min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
 
+    /* Main Container with subtle shadows and rounded corners */
     .search-container { 
       width: 100%; 
-      max-width: 460px; 
+      max-width: 480px; 
       background: white; 
       padding: 24px; 
       border-radius: 16px; 
       box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.05); 
+      position: relative;
     }
 
+    /* Suggestion box alignment */
     #suggestions { 
       position: absolute; 
       z-index: 1000; 
       width: 100%; 
       cursor: pointer;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
       border-radius: 8px;
       overflow: hidden;
     }
 
+    /* Touch-friendly target sizes */
     .btn {
       padding: 10px 16px;
       font-weight: 600;
       border-radius: 10px;
-      transition: all 0.2s;
+      transition: all 0.2s ease-in-out;
     }
 
-    .btn-primary {
-      background-color: #4f46e5;
-      border-color: #4f46e5;
-    }
-    .btn-primary:hover, .btn-primary:focus {
-      background-color: #4338ca;
-      border-color: #4338ca;
+    /* Seamless Settings Transition */
+    .collapse-settings {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease-out;
     }
 
+    .collapse-settings.show {
+      max-height: 400px;
+    }
+
+    /* Overlay styles for mobile and desktop viewports */
     #resultoverlay {
       position: fixed; 
       top: 0; 
       left: 0; 
       width: 100%; 
       height: 100%; 
-      background: rgba(15, 23, 42, 0.6); 
+      background: rgba(15, 23, 42, 0.75); 
       backdrop-filter: blur(4px);
       z-index: 10000;
       display: none;
@@ -75,106 +78,98 @@
       justify-content: center;
     }
 
-    .form-select, .form-control {
-      height: 46px; 
-      border-radius: 10px;
-      border-color: #e2e8f0;
-    }
-    .form-select:focus, .form-control:focus {
-      border-color: #4f46e5;
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
-    }
-
-    /* Custom scrollbars for clean styling */
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #f1f5f9;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 3px;
+    /* Overlay Card viewport optimizations */
+    .overlay-card {
+      width: 90%; 
+      max-width: 420px; 
+      border-radius: 16px;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
     }
 
-    /* Custom Toast Notification */
+    .overlay-card-body {
+      overflow-y: auto;
+      max-height: calc(90vh - 40px);
+    }
+
+    /* Toast Notification System */
     #toast-notification {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
+      bottom: 24px;
+      right: 24px;
       z-index: 11000;
       background: #0f172a;
       color: white;
-      padding: 12px 20px;
+      padding: 14px 24px;
       border-radius: 12px;
       font-size: 14px;
+      font-weight: 500;
       box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
       display: none;
-      animation: fadeInUp 0.3s ease-out;
+      animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(10px); }
+      from { opacity: 0; transform: translateY(15px); }
       to { opacity: 1; transform: translateY(0); }
     }
   </style>
 
   <script>
-    /* */
-    if ("serviceWorker" in navigator) {
+    /* Safe protocol check for Service Worker to prevent crashes in blob/sandboxed preview environments */
+    if ("serviceWorker" in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
       navigator.serviceWorker.register("service-worker.js")
         .then(() => console.log("SW registered"))
-        .catch(err => console.error("SW failed", err));
+        .catch(err => console.warn("SW registration skipped/failed:", err));
     }
   </script>
 </head>
 <body>
   
-  <!-- -->
   <div class="search-container">
     <div id="search-form">
-      
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0 fw-bold text-dark">Branch Linker</h5>
-        <!-- Nextcloud Toggle Gear -->
-        <button id="toggleSettingsBtn" class="btn btn-light btn-sm p-2 rounded-circle" title="Nextcloud Connection Settings">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-secondary">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </button>
-      </div>
-
-      <!-- Collapsible Nextcloud Credentials Panel -->
-      <div id="ncSettingsPanel" class="collapse border border-slate-200 rounded-3 p-3 bg-light mb-3">
-        <h6 class="fw-bold mb-2 text-primary d-flex align-items-center gap-1">
-          Nextcloud Connection
-        </h6>
-        <div class="mb-2">
-          <label class="form-label mb-1 small fw-medium text-secondary">Server URL</label>
-          <input type="text" id="nc_url" placeholder="https://ecdcloud.niyolice.uk" class="form-control form-control-sm">
-        </div>
-        <div class="row g-2 mb-2">
-          <div class="col-6">
-            <label class="form-label mb-1 small fw-medium text-secondary">Username</label>
-            <input type="text" id="nc_user" placeholder="e.g. jaleel" class="form-control form-control-sm">
-          </div>
-          <div class="col-6">
-            <label class="form-label mb-1 small fw-medium text-secondary">App Password</label>
-            <input type="password" id="nc_pass" placeholder="xxxx-xxxx-xxxx-xxxx" class="form-control form-control-sm">
-          </div>
-        </div>
-        <button id="saveSettingsBtn" class="btn btn-sm btn-primary w-100 py-1.5">Save Sync Settings</button>
-      </div>
-      
       <div id="searchform">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <h5 class="fw-bold m-0 text-slate-800">Branch Linker</h5>
+          
+          <!-- Nextcloud Config Toggle Button -->
+          <button id="toggleSettingsBtn" class="btn btn-sm btn-outline-secondary py-1 px-2.5" style="font-size: 12px;">
+            ⚙️ Nextcloud Sync
+          </button>
+        </div>
+        
+        <!-- Live Database Status bar -->
         <div id="db-status" class="small mb-3" style="display: none; color: #198754; font-weight: bold;">
           ● Connected to database
         </div>
 
+        <!-- Nextcloud Configuration Form (Collapsible) -->
+        <div id="ncSettingsPanel" class="collapse-settings border-bottom pb-3 mb-3">
+          <div class="card card-body bg-light border-0 p-3 mt-2 rounded-3">
+            <h6 class="fw-bold mb-2 text-dark small">Nextcloud Live Reports Config</h6>
+            <div class="mb-2">
+              <label class="text-muted d-block mb-1" style="font-size: 11px; font-weight:600;">Server URL</label>
+              <input type="text" id="nc_url" placeholder="https://ecdcloud.niyolice.uk" class="form-control form-control-sm rounded-2">
+            </div>
+            <div class="mb-2">
+              <label class="text-muted d-block mb-1" style="font-size: 11px; font-weight:600;">Username</label>
+              <input type="text" id="nc_user" placeholder="e.g., jaleel" class="form-control form-control-sm rounded-2">
+            </div>
+            <div class="mb-3">
+              <label class="text-muted d-block mb-1" style="font-size: 11px; font-weight:600;">App Password</label>
+              <input type="password" id="nc_pass" placeholder="xxxx-xxxx-xxxx-xxxx" class="form-control form-control-sm rounded-2">
+            </div>
+            <button id="saveSettingsBtn" class="btn btn-indigo btn-sm btn-primary py-1.5 w-100 rounded-2" style="font-size: 12px;">
+              Save Connection
+            </button>
+          </div>
+        </div>
+
         <div class="mb-3">
-          <label class="small fw-bold">Bank</label>
-          <select id="bankSelect" class="form-select">
+          <label class="small fw-bold text-muted mb-1">Bank</label>
+          <select id="bankSelect" class="form-select border-0 bg-light p-2.5 rounded-3" style="font-size:14px;">
             <option value="Al Rajhi Bank">Al Rajhi Bank</option>
             <option value="Al Inma Bank">Al Inma Bank</option>
           </select>
@@ -182,39 +177,33 @@
       </div>
 
       <div class="mb-4" style="position: relative;">
-        <label class="small fw-bold">Branch Name or Code</label>
-        <input type="text" id="branchInput" class="form-control" autocomplete="off" placeholder="Search...">
+        <label class="small fw-bold text-muted mb-1">Branch Name or Code</label>
+        <input type="text" id="branchInput" class="form-control border-0 bg-light p-2.5 rounded-3" autocomplete="off" placeholder="Type name or code..." style="font-size:14px;">
         <ul id="suggestions" class="list-group small"></ul>
       </div>
 
-      <button id="findBtn" class="btn btn-primary w-100">Find</button>
+      <button id="findBtn" class="btn btn-primary w-100 py-2.5 shadow-sm text-uppercase tracking-wider" style="font-size: 13px;">Find Branch</button>
     </div>
 
-    <!-- -->
+    <!-- Detailed Overlay Layout -->
     <div id="resultoverlay">
-      <div class="card mx-auto shadow-lg border-0" style="width: 95%; max-width: 420px; border-radius: 20px; overflow: hidden;">
-        <div class="card-body p-4">
-          <h5 id="resBranch" class="text-primary fw-bold mb-3"></h5>
+      <div class="card overlay-card border-0">
+        <div class="card-body overlay-card-body p-4">
+          <h6 id="resBranch" class="text-primary fw-bold mb-3 fs-5"></h6>
           
-          <div id="resDetails" class="small text-muted mb-3" style="font-size: 13.5px; line-height: 1.6;"></div>
+          <div id="resDetails" class="small text-muted mb-3 border-bottom pb-3"></div>
 
-          <!-- Live Nextcloud Reports Dynamic Area -->
-          <div id="ncReportsArea" class="border-top pt-3 mt-3">
-            <h6 class="fw-bold text-dark d-flex align-items-center gap-2 mb-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-indigo-600">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Live Server Reports
+          <!-- Live Nextcloud Document Sync Row -->
+          <div class="mb-4">
+            <h6 class="fw-bold text-slate-800 small mb-2 d-flex align-items-center gap-1">
+              <span>📂</span> Live Digital Reports
             </h6>
-            <div id="ncReportsList" class="text-secondary small">
-              <div class="text-center py-2 text-muted">
-                <span class="spinner-border spinner-border-sm me-1 text-indigo-500" role="status"></span>
-                Searching reports...
-              </div>
+            <div id="ncReportsList" class="small">
+              <!-- Dynamically populated via live REST searches -->
             </div>
           </div>
 
-          <div class="d-grid gap-2 mt-4">
+          <div class="d-grid gap-2">
             <button id="copyBtn" class="btn btn-outline-primary btn-sm py-2">Copy GPS Location</button>
             <button id="closeOverlayBtn" class="btn btn-light btn-sm text-secondary py-2 mt-1">Close</button>
           </div>
@@ -223,10 +212,10 @@
     </div>
   </div>
 
-  <!-- Dynamic Toast Container -->
-  <div id="toast-notification">Notification text</div>
+  <!-- Custom CSS Toast element replacing alert() -->
+  <div id="toast-notification">Notification text here</div>
 
-  <!-- Reference External JavaScript File -->
+  <!-- External JS Script Link -->
   <script src="branchlinker.js"></script>
 </body>
 </html>
